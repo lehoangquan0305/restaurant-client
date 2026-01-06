@@ -70,8 +70,8 @@ export default function Checkout() {
 
   const handleNext = () => {
     if (step === 1) {
-      if (!formData.customerPhone || !/^\d{9,11}$/.test(formData.customerPhone)) {
-        setError('Số điện thoại phải từ 9-11 số')
+      if (!formData.customerPhone || !/^\d{10}$/.test(formData.customerPhone)) {
+        setError('Số điện thoại phải đủ 10 chữ số')
         return
       }
       if (!formData.tableId) {
@@ -264,7 +264,9 @@ export default function Checkout() {
                       handleInputChange(e)
                     }
                   }}
-                  placeholder="09xxxxxxxxx"
+                  placeholder="0xxxxxxxxx"
+                  maxLength="10"
+                  pattern="\\d{10}"
                   disabled={loading}
                   required
                 />
