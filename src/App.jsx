@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Header from './components/Header'
+import ChatBox from './components/ChatBox'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Menu from './pages/Menu'
@@ -20,6 +21,7 @@ function App() {
   return (
     <Router>
       <Header />
+      <ChatBox />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

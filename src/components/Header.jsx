@@ -52,7 +52,8 @@ export default function Header() {
     <header className="header">
       <div className="header-container">
         <div className="logo">
-          <h1>🍽️ Nhà Hàng 5 Sao</h1>
+          <img src="/logo-qt.png" alt="QT Restaurant & Bar" className="logo-img" />
+          <h1>🍽️ Nhà Hàng QT</h1>
         </div>
 
         <nav className="nav">

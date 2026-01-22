@@ -35,7 +35,7 @@ export default function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1>🍽️ Nhà Hàng 5 Sao</h1>
+        <h1>🍽️ Nhà Hàng QT</h1>
         <p className="subtitle">Đặt Bàn & Chọn Món Trực Tuyến</p>
         
         <form onSubmit={handleSubmit}>

@@ -13,6 +13,7 @@ export default function Menu() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [showCart, setShowCart] = useState(false)
+  const [selectedDish, setSelectedDish] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -146,13 +147,23 @@ export default function Menu() {
                     src={item.image}
                     alt={item.name}
                     className="item-image"
+                    onClick={() => setSelectedDish(item)}
+                    style={{ cursor: 'pointer' }}
                   />
                 )}
 
                 <div className="item-info">
-                  <h3>{item.name}</h3>
+                  <h3 onClick={() => setSelectedDish(item)} style={{ cursor: 'pointer' }}>
+                    {item.name}
+                  </h3>
                   {item.description && (
-                    <p className="description">{item.description}</p>
+                    <p 
+                      className="description"
+                      onClick={() => setSelectedDish(item)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {item.description}
+                    </p>
                   )}
 
                   <div className="item-footer">
@@ -284,6 +295,79 @@ export default function Menu() {
           )}
         </div>
       </div>
+
+      {/* Modal Chi Tiết Món Ăn */}
+      {selectedDish && (
+        <div className="modal-overlay" onClick={() => setSelectedDish(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="modal-close"
+              onClick={() => setSelectedDish(null)}
+            >
+              ✕
+            </button>
+
+            {selectedDish.image && (
+              <img 
+                src={selectedDish.image} 
+                alt={selectedDish.name}
+                className="modal-image"
+              />
+            )}
+
+            <div className="modal-body">
+              <h2>{selectedDish.name}</h2>
+              
+              <div className="modal-price">
+                <strong>Giá: {selectedDish.price?.toLocaleString?.() || selectedDish.price} ₫</strong>
+              </div>
+
+              <div className="modal-description">
+                <h3>📝 Mô Tả</h3>
+                <p>{selectedDish.description || 'Không có mô tả chi tiết'}</p>
+              </div>
+
+              {selectedDish.ingredients && (
+                <div className="modal-ingredients">
+                  <h3>🥘 Thành Phần</h3>
+                  <p>{selectedDish.ingredients}</p>
+                </div>
+              )}
+
+              {selectedDish.allergens && (
+                <div className="modal-allergens">
+                  <h3>⚠️ Chứa Chất Gây Dị Ứng</h3>
+                  <p>{selectedDish.allergens}</p>
+                </div>
+              )}
+
+              {selectedDish.calories && (
+                <div className="modal-info">
+                  <span>🔥 Calo: {selectedDish.calories}</span>
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  className="btn-add-modal"
+                  onClick={() => {
+                    addToCart(selectedDish)
+                    setSelectedDish(null)
+                  }}
+                >
+                  ✓ Thêm vào giỏ hàng
+                </button>
+                <button
+                  className="btn-close-modal"
+                  onClick={() => setSelectedDish(null)}
+                >
+                  ✕ Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
