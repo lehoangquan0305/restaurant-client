@@ -20,6 +20,10 @@ export default function ChatBox() {
   const [cart, setCart] = useState([])
   const messagesEndRef = useRef(null)
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   const addToCart = (item) => {
     const existingItem = cart.find(c => c.id === item.id)
     let newCart
