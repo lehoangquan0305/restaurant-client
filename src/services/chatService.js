@@ -1,5 +1,5 @@
 // Service để gọi Backend Chatbot API (Spring Boot + Gemini)
-const API_URL = '/api/chatbot/chat'
+const API_URL = '/api/chat'
 
 // Phản hồi fallback khi API fail
 const fallbackResponses = {
@@ -15,19 +15,19 @@ const fallbackResponses = {
 const getFallbackResponse = (message) => {
   const lowerMsg = message.toLowerCase()
   if (lowerMsg.includes('thực đơn') || lowerMsg.includes('món ăn') || lowerMsg.includes('ăn gì')) {
-    return fallbackResponses.thực_đơn
+    return { text: fallbackResponses.thực_đơn, action: null, item: null }
   } else if (lowerMsg.includes('đặt bàn') || lowerMsg.includes('đặt') || lowerMsg.includes('bàn')) {
-    return fallbackResponses.đặt_bàn
+    return { text: fallbackResponses.đặt_bàn, action: null, item: null }
   } else if (lowerMsg.includes('thanh toán') || lowerMsg.includes('trả tiền') || lowerMsg.includes('chi phí')) {
-    return fallbackResponses.thanh_toán
+    return { text: fallbackResponses.thanh_toán, action: null, item: null }
   } else if (lowerMsg.includes('liên hệ') || lowerMsg.includes('hotline') || lowerMsg.includes('điện thoại')) {
-    return fallbackResponses.liên_hệ
+    return { text: fallbackResponses.liên_hệ, action: null, item: null }
   } else if (lowerMsg.includes('giá') || lowerMsg.includes('tiền')) {
-    return fallbackResponses.giá_cả
+    return { text: fallbackResponses.giá_cả, action: null, item: null }
   } else if (lowerMsg.includes('khuyến mãi') || lowerMsg.includes('giảm') || lowerMsg.includes('sale')) {
-    return fallbackResponses.khuyến_mãi
+    return { text: fallbackResponses.khuyến_mãi, action: null, item: null }
   }
-  return fallbackResponses.default
+  return { text: fallbackResponses.default, action: null, item: null }
 }
 
 export const sendMessageToGemini = async (message) => {
@@ -43,7 +43,7 @@ export const sendMessageToGemini = async (message) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ 
-        question: message,
+        message: message,
         userId: userId
       })
     })
@@ -59,7 +59,7 @@ export const sendMessageToGemini = async (message) => {
 
     if (data.reply) {
       console.log('✅ Got AI response from Gemini:', data.reply)
-      return data.reply
+      return { text: data.reply, action: data.action || null, item: data.item || null }
     }
 
     if (data.error) {

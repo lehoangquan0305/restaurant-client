@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { sendMessageToGemini } from '../services/chatService'
+import { getMenu } from '../api'
+import toast, { Toaster } from "react-hot-toast"
 import '../styles/chatbox.css'
 
 export default function ChatBox() {
@@ -14,15 +16,48 @@ export default function ChatBox() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [menu, setMenu] = useState([])
+  const [cart, setCart] = useState([])
   const messagesEndRef = useRef(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const addToCart = (item) => {
+    const existingItem = cart.find(c => c.id === item.id)
+    let newCart
+
+    if (existingItem) {
+      newCart = cart.map(c =>
+        c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
+      )
+    } else {
+      newCart = [...cart, { ...item, quantity: 1 }]
+    }
+
+    setCart(newCart)
+    localStorage.setItem('cart', JSON.stringify(newCart))
+
+    toast.success(`${item.name} đã được thêm vào giỏ hàng!`, {
+      duration: 1500
+    })
   }
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        const menuRes = await getMenu()
+        setMenu(menuRes.data || [])
+      } catch (error) {
+        console.error('Error loading menu:', error)
+      }
+    }
+    loadMenu()
+
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
+    setCart(savedCart)
+  }, [])
 
   const handleSendMessage = async () => {
     if (!input.trim()) return
@@ -41,13 +76,26 @@ export default function ChatBox() {
 
     // Gọi Gemini AI API thực
     try {
-      const botResponse = {
+      const response = await sendMessageToGemini(input)
+      const botMessage = {
         id: messages.length + 2,
-        text: await sendMessageToGemini(input),
+        text: response.text,
         sender: 'bot',
         timestamp: new Date()
       }
-      setMessages(prev => [...prev, botResponse])
+      setMessages(prev => [...prev, botMessage])
+
+      // Handle action
+      if (response.action === 'add_to_cart' && response.item) {
+        const item = menu.find(m => m.name.toLowerCase().includes(response.item.toLowerCase()))
+        if (item) {
+          addToCart(item)
+        } else {
+          toast.error(`Không tìm thấy món "${response.item}" trong thực đơn.`, {
+            duration: 2000
+          })
+        }
+      }
     } catch (error) {
       console.error('Error getting AI response:', error)
       const errorResponse = {
@@ -71,6 +119,7 @@ export default function ChatBox() {
 
   return (
     <>
+      <Toaster />
       {/* Chat Box Button */}
       <button 
         className="chat-toggle-btn"
