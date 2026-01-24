@@ -165,20 +165,22 @@ export default function Checkout() {
         }
 
         // Xử lý thanh toán
-        if (paymentMethod === 'qrcode' || paymentMethod === 'bank') {
-          // Lưu vào localStorage
+        if (paymentMethod === 'qrcode' || paymentMethod === 'bank' || paymentMethod === 'momo') {
+          // Lưu vào localStorage để trang Payment có dữ liệu hiển thị
           localStorage.setItem('pendingPayment', JSON.stringify({
             invoiceId: invoiceData.id,
             amount: invoiceData.amount,
             method: paymentMethod,
             orderId: orderData_created.id
           }))
+          // Chuyển sang trang hiện mã QR (Momo bây giờ sẽ nhảy vào đây)
           navigate('/payment')
         } else {
-          // Thanh toán trực tiếp (momo, cash)
+          // Chỉ dành cho Thanh toán tại quán (cash)
           console.log('Processing direct payment with method:', paymentMethod)
           await payInvoice(invoiceData.id, invoiceData.amount, paymentMethod)
-          alert('Thanh toán thành công!')
+          alert('Đơn hàng đã được ghi nhận! Vui lòng thanh toán tại quầy.')
+          
           localStorage.removeItem('cart')
           localStorage.removeItem('selectedTable')
           localStorage.removeItem('reservationTime')
