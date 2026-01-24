@@ -15,6 +15,10 @@ export default function Menu() {
   const [showCart, setShowCart] = useState(false)
   const [selectedDish, setSelectedDish] = useState(null)
   const navigate = useNavigate()
+  const now = new Date();
+const minDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  .toISOString()
+  .slice(0, 16);
 
 useEffect(() => {
     loadData()
@@ -263,13 +267,14 @@ useEffect(() => {
                 </div>
 
                 <div className="form-group">
-                  <label>Thời gian</label>
-                  <input
-                    type="datetime-local"
-                    value={reservationTime}
-                    onChange={(e) => setReservationTime(e.target.value)}
-                  />
-                </div>
+  <label>Thời gian</label>
+  <input
+    type="datetime-local"
+    value={reservationTime}
+    min={minDateTime} // 👈 THÊM DÒNG NÀY: Chặn chọn ngày quá khứ trong lịch
+    onChange={(e) => setReservationTime(e.target.value)}
+  />
+</div>
               </div>
 
               <div className="cart-total">
@@ -282,30 +287,37 @@ useEffect(() => {
                 </button>
 
                 <button
-                  className="btn-checkout"
-                  onClick={() => {
-                    if (cart.length === 0) {
-                      alert('Vui lòng chọn ít nhất một món ăn')
-                      return
-                    }
-                    if (!selectedTable) {
-                      alert('Vui lòng chọn bàn')
-                      return
-                    }
-                    if (!reservationTime) {
-                      alert('Vui lòng chọn thời gian đặt bàn')
-                      return
-                    }
+  className="btn-checkout"
+  onClick={() => {
+    if (cart.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một món ăn')
+      return
+    }
+    if (!selectedTable) {
+      toast.error('Vui lòng chọn bàn')
+      return
+    }
+    if (!reservationTime) {
+      toast.error('Vui lòng chọn thời gian đặt bàn')
+      return
+    }
 
-                    localStorage.setItem('cart', JSON.stringify(cart))
-                    localStorage.setItem('selectedTable', selectedTable)
-                    localStorage.setItem('reservationTime', reservationTime)
+    // 🔥 KIỂM TRA QUÁ KHỨ TẠI ĐÂY
+    const selectedDate = new Date(reservationTime);
+    if (selectedDate < new Date()) {
+      toast.error('Thời gian đặt bàn không được ở trong quá khứ!');
+      return;
+    }
 
-                    navigate('/checkout')
-                  }}
-                >
-                  💳 Tiến tới Thanh Toán
-                </button>
+    localStorage.setItem('cart', JSON.stringify(cart))
+    localStorage.setItem('selectedTable', selectedTable)
+    localStorage.setItem('reservationTime', reservationTime)
+
+    navigate('/checkout')
+  }}
+>
+  💳 Tiến tới Thanh Toán
+</button>
               </div>
             </>
           )}

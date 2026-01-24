@@ -8,6 +8,7 @@ import Menu from './pages/Menu'
 import Checkout from './pages/Checkout'
 import Payment from './pages/Payment'
 import Orders from './pages/Orders'
+import ForgotPassword from './components/ForgotPassword'
 import './App.css'
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -40,6 +41,7 @@ function App() {
           <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
           <Route path="/" element={<Navigate to="/menu" />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
         </Routes>
       </LayoutWrapper>
     </Router>
