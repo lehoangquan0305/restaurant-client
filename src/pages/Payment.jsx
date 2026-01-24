@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { payInvoice } from '../api'
+import { payInvoice } from '../api' // Lưu ý: Nếu có api cancelInvoice thì nên thêm vào
 import '../styles/payment.css'
 
 export default function Payment() {
@@ -9,7 +9,6 @@ export default function Payment() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // THÔNG TIN NGÂN HÀNG TPBANK CỦA CẬU
   const MY_BANK = {
     BANK_ID: "tpbank", 
     ACCOUNT_NO: "0934016724", 
@@ -22,7 +21,22 @@ export default function Payment() {
         navigate('/menu')
     }
     setPending(data)
+
+    // CHỐN LỖI: Nếu user bấm nút Back của trình duyệt
+    const handlePopState = () => {
+      localStorage.removeItem('pendingPayment');
+    };
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [navigate])
+
+  // HÀM XỬ LÝ QUAY LẠI (QUAN TRỌNG)
+  const handleBackToCheckout = () => {
+    // Xóa dữ liệu thanh toán đang chờ để tránh bị "nhận vơ" là đã thanh toán
+    localStorage.removeItem('pendingPayment');
+    navigate('/checkout');
+  }
 
   const handlePaymentConfirm = async () => {
     if (!pending) return
@@ -30,11 +44,14 @@ export default function Payment() {
     setLoading(true)
     try {
       await payInvoice(pending.invoiceId, pending.amount, pending.method)
-      setStatus('success')
+      
+      // Xóa toàn bộ dữ liệu liên quan sau khi thanh toán THÀNH CÔNG
       localStorage.removeItem('pendingPayment')
       localStorage.removeItem('cart')
       localStorage.removeItem('selectedTable')
       localStorage.removeItem('reservationTime')
+      
+      setStatus('success')
       
       setTimeout(() => {
         navigate('/orders')
@@ -65,7 +82,6 @@ export default function Payment() {
               }</p>
             </div>
 
-            {/* 1. HIỂN THỊ CHO QR CODE HOẶC CHUYỂN KHOẢN */}
             {(pending.method === 'qrcode' || pending.method === 'bank') && (
               <div className="qr-section">
                 <h2>📱 Quét QR Ngân Hàng</h2>
@@ -77,51 +93,47 @@ export default function Payment() {
                   />
                 </div>
                 <p className="qr-info">Số tiền: <strong>{pending.amount?.toLocaleString()} ₫</strong></p>
-                <p className="qr-text" style={{ fontSize: '13px', color: '#666' }}>Quét mã bằng App ngân hàng để điền nhanh thông tin.</p>
+                <p className="qr-text" style={{ fontSize: '13px', color: '#666' }}>Quét mã bằng App ngân hàng để thanh toán tự động.</p>
               </div>
             )}
 
-            {/* 2. HIỂN THỊ CHO VÍ MOMO */}
             {pending.method === 'momo' && (
               <div className="momo-section" style={{ textAlign: 'center' }}>
-                <h2 style={{ color: '#a50064' }}>🔴 Quét Mã Momo / Ngân Hàng</h2>
+                <h2 style={{ color: '#a50064' }}>🔴 Thanh Toán Momo / QR</h2>
                 <div className="qr-code" style={{ margin: '20px 0' }}>
                   <img 
-                    src={`https://img.vietqr.io/image/${MY_BANK.BANK_ID}-${MY_BANK.ACCOUNT_NO}-compact.png?amount=${pending.amount}&addInfo=MOMO Thanh toan ${pending.invoiceId}&accountName=${MY_BANK.ACCOUNT_NAME}`} 
+                    src={`https://img.vietqr.io/image/${MY_BANK.BANK_ID}-${MY_BANK.ACCOUNT_NO}-compact.png?amount=${pending.amount}&addInfo=Thanh toan hoa don ${pending.invoiceId}&accountName=${MY_BANK.ACCOUNT_NAME}`} 
                     alt="Momo QR" 
                     style={{ width: '100%', maxWidth: '220px', borderRadius: '15px', border: '4px solid #a50064', padding: '5px' }}
                   />
                 </div>
-                <p>Số Momo: <strong>0934016724</strong></p>
-                <p>Chủ thẻ: <strong>LE HOANG QUAN</strong></p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Dùng App Momo hoặc Ngân hàng quét đều được nhé!</p>
+                <p>Nội dung CK: <strong>#{pending.invoiceId}</strong></p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Dùng Momo hoặc App Ngân hàng quét đều được!</p>
               </div>
             )}
 
-            {/* 3. HIỂN THỊ CHO THANH TOÁN TẠI QUÁN */}
             {pending.method === 'cash' && (
               <div className="cash-section" style={{ padding: '30px 10px', textAlign: 'center' }}>
                 <div style={{ fontSize: '60px' }}>🏃‍♂️</div>
                 <h2 style={{ color: '#2ecc71' }}>Thanh Toán Tại Quầy</h2>
-                <p>Vui lòng đọc mã hóa đơn bên dưới tại quầy thu ngân:</p>
-                <div style={{ background: '#f8f9fa', padding: '10px', borderRadius: '8px', margin: '15px 0', fontSize: '20px', fontWeight: 'bold', color: '#333' }}>
+                <p>Vui lòng đọc mã hóa đơn này cho thu ngân:</p>
+                <div style={{ background: '#f8f9fa', padding: '10px', borderRadius: '8px', margin: '15px 0', fontSize: '22px', fontWeight: 'bold', color: '#333', border: '1px dashed #ccc' }}>
                   #{pending.invoiceId}
                 </div>
-                <p style={{ color: '#7f8c8d' }}>Cảm ơn bạn đã tin tưởng nhà hàng QT!</p>
               </div>
             )}
 
             <div className="payment-amount" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
-              <span>Tổng thanh toán:</span>
-              <strong style={{ fontSize: '22px', color: '#e74c3c' }}>{pending.amount?.toLocaleString()} ₫</strong>
+              <span>Số tiền cần trả:</span>
+              <strong style={{ fontSize: '24px', color: '#e74c3c' }}>{pending.amount?.toLocaleString()} ₫</strong>
             </div>
 
             <div className="payment-actions" style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button className="btn-cancel" onClick={() => navigate('/checkout')} disabled={loading} style={{ flex: 1 }}>
+              <button className="btn-cancel" onClick={handleBackToCheckout} disabled={loading} style={{ flex: 1, cursor: 'pointer' }}>
                 ← Quay Lại
               </button>
-              <button className="btn-confirm" onClick={handlePaymentConfirm} disabled={loading} style={{ flex: 2 }}>
-                {loading ? '⏳ Đang xử lý...' : (pending.method === 'cash' ? '✅ Xác nhận tại quầy' : '✅ Tôi Đã Chuyển Tiền')}
+              <button className="btn-confirm" onClick={handlePaymentConfirm} disabled={loading} style={{ flex: 2, cursor: 'pointer' }}>
+                {loading ? '⏳ Đang xử lý...' : (pending.method === 'cash' ? '✅ Xác nhận thanh toán' : '✅ Tôi Đã Chuyển Khoản')}
               </button>
             </div>
           </>
@@ -129,19 +141,19 @@ export default function Payment() {
 
         {status === 'success' && (
           <div className="payment-success" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div className="success-icon" style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
-            <h1>Tuyệt vời!</h1>
-            <p>Hệ thống đã ghi nhận thanh toán của bạn.</p>
-            <p style={{ color: '#7f8c8d', fontSize: '14px' }}>Đang chuyển bạn về danh sách đơn hàng...</p>
+            <div className="success-icon" style={{ fontSize: '60px', marginBottom: '20px' }}>🎉</div>
+            <h1>Thành Công!</h1>
+            <p>Hệ thống đang kiểm tra và xử lý món ăn cho bạn.</p>
+            <p style={{ color: '#7f8c8d', fontSize: '14px', marginTop: '10px' }}>Tự động chuyển trang sau 2 giây...</p>
           </div>
         )}
 
         {status === 'failed' && (
           <div className="payment-failed" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div className="failed-icon" style={{ fontSize: '60px', marginBottom: '20px' }}>❌</div>
-            <h1>Thanh Toán Thất Bại</h1>
-            <p>Có lỗi xảy ra, vui lòng liên hệ nhân viên để được hỗ trợ.</p>
-            <button onClick={() => setStatus('waiting')} style={{ marginTop: '20px' }}>← Thử lại</button>
+            <div className="failed-icon" style={{ fontSize: '60px', marginBottom: '20px' }}>⚠️</div>
+            <h1>Giao Dịch Thất Bại</h1>
+            <p>Không thể cập nhật trạng thái hóa đơn. Vui lòng thử lại hoặc báo nhân viên.</p>
+            <button className="btn-confirm" onClick={() => setStatus('waiting')} style={{ marginTop: '20px', padding: '10px 20px' }}>Thử lại</button>
           </div>
         )}
       </div>

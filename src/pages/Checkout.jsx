@@ -20,9 +20,25 @@ export default function Checkout() {
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  useEffect(() => {
-    loadData()
-  }, [])
+ useEffect(() => {
+  const checkPending = () => {
+    const pending = localStorage.getItem('pendingPayment');
+    if (pending) {
+      const confirmContinue = window.confirm(
+        "Bạn có một đơn hàng đang chờ thanh toán. Bạn có muốn tiếp tục thanh toán đơn đó không?"
+      );
+      if (confirmContinue) {
+        navigate('/payment');
+      } else {
+        // Nếu user chọn "Hủy", ta xóa sạch đơn treo để họ đặt đơn mới
+        localStorage.removeItem('pendingPayment');
+      }
+    }
+  };
+
+  checkPending();
+  loadData();
+}, [navigate]);
 
   const loadData = async () => {
     try {
@@ -104,7 +120,10 @@ export default function Checkout() {
     setError('')
 
     try {
-      // Tạo đặt bàn
+      // 1. Dọn dẹp đơn hàng "treo" cũ nếu có trước khi bắt đầu tạo đơn mới
+      localStorage.removeItem('pendingPayment')
+
+      // 2. Tạo đặt bàn (Reservation)
       const reservationData = {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
@@ -114,21 +133,18 @@ export default function Checkout() {
         status: 'CONFIRMED'
       }
 
-      console.log('Creating reservation:', reservationData)
       const reservationRes = await createReservation(reservationData)
-      console.log('Reservation response:', reservationRes)
       const reservationData_created = reservationRes.data || reservationRes
-      console.log('Reservation created:', reservationData_created)
 
-      // Tạo đơn hàng
-      const cart = JSON.parse(localStorage.getItem('cart') || '[]')
-      console.log('Cart data:', cart)
+      // 3. Lấy giỏ hàng từ LocalStorage
+      const cartItems = JSON.parse(localStorage.getItem('cart') || '[]')
       
-        if (cart.length > 0) {
+      if (cartItems.length > 0) {
+        // --- CÓ MÓN ĂN: Tạo Order -> Tạo Invoice ---
         const orderData = {
           table: { id: parseInt(formData.tableId) },
           reservationId: reservationData_created?.id,
-          items: cart.map(item => ({
+          items: cartItems.map(item => ({
             menuItem: { id: item.id },
             quantity: item.quantity,
             price: item.price
@@ -137,81 +153,57 @@ export default function Checkout() {
           status: 'NEW'
         }
 
-        console.log('Creating order:', orderData)
         const orderRes = await createOrder(orderData)
-        console.log('Order response full:', orderRes)
-        console.log('Order response.data:', orderRes.data)
         const orderData_created = orderRes.data || orderRes
-        console.log('Order created object:', orderData_created)
-        console.log('Order created with ID:', orderData_created?.id)
 
-        if (!orderData_created?.id) {
-          console.error('Order ID is missing. Full object:', JSON.stringify(orderData_created))
-          throw new Error('Order creation failed: no order ID returned')
-        }
+        if (!orderData_created?.id) throw new Error('Không thể tạo đơn hàng (Thiếu ID)')
 
-        // Tạo invoice
-        console.log('Creating invoice for order:', orderData_created.id)
+        // Tạo hóa đơn (Invoice)
         const invoiceRes = await createInvoice(orderData_created.id)
-        console.log('Invoice response full:', invoiceRes)
-        console.log('Invoice response.data:', invoiceRes.data)
         const invoiceData = invoiceRes.data || invoiceRes
-        console.log('Invoice created object:', invoiceData)
-        console.log('Invoice created with ID:', invoiceData?.id)
 
-        if (!invoiceData?.id) {
-          console.error('Invoice ID is missing. Full object:', JSON.stringify(invoiceData))
-          throw new Error('Invoice creation failed: no invoice ID returned')
-        }
+        if (!invoiceData?.id) throw new Error('Không thể tạo hóa đơn (Thiếu ID)')
 
-        // Xử lý thanh toán
-        if (paymentMethod === 'qrcode' || paymentMethod === 'bank' || paymentMethod === 'momo') {
-          // Lưu vào localStorage để trang Payment có dữ liệu hiển thị
+        // 4. Xử lý theo phương thức thanh toán
+        const isOnlinePayment = ['qrcode', 'bank', 'momo'].includes(paymentMethod)
+
+        if (isOnlinePayment) {
+          // A. THANH TOÁN ONLINE: Lưu thông tin tạm và nhảy sang trang QR
           localStorage.setItem('pendingPayment', JSON.stringify({
             invoiceId: invoiceData.id,
             amount: invoiceData.amount,
             method: paymentMethod,
             orderId: orderData_created.id
           }))
-          // Chuyển sang trang hiện mã QR (Momo bây giờ sẽ nhảy vào đây)
           navigate('/payment')
         } else {
-          // Chỉ dành cho Thanh toán tại quán (cash)
-          console.log('Processing direct payment with method:', paymentMethod)
-          await payInvoice(invoiceData.id, invoiceData.amount, paymentMethod)
-          alert('Đơn hàng đã được ghi nhận! Vui lòng thanh toán tại quầy.')
+          // B. THANH TOÁN TẠI QUẦY (CASH): Gọi API xác nhận luôn
+          await payInvoice(invoiceData.id, invoiceData.amount, 'cash')
           
+          // Dọn dẹp bộ nhớ
           localStorage.removeItem('cart')
           localStorage.removeItem('selectedTable')
           localStorage.removeItem('reservationTime')
+          
+          alert('✅ Đơn hàng thành công! Vui lòng thanh toán tại quầy khi đến quán.')
           navigate('/orders')
         }
       } else {
-        // Chỉ đặt bàn, không có món ăn
-        alert('Thanh toán thành công! Bàn của bạn đã được xác nhận.')
+        // --- CHỈ ĐẶT BÀN (GIỎ HÀNG TRỐNG) ---
         localStorage.removeItem('cart')
         localStorage.removeItem('selectedTable')
         localStorage.removeItem('reservationTime')
+        
+        alert('✅ Đã đặt bàn thành công! Cảm ơn bạn.')
         navigate('/orders')
       }
     } catch (err) {
-      console.error('Error in handleSubmit:', err)
-      console.error('Error response:', err.response)
-      console.error('Error data:', err.response?.data)
+      console.error('Lỗi handleSubmit:', err)
       
-      let errorMsg = 'Có lỗi xảy ra khi xử lý đơn hàng'
-      
-      if (err.response?.data?.message) {
-        errorMsg = err.response.data.message
-      } else if (err.response?.data?.error) {
-        errorMsg = err.response.data.error
-      } else if (typeof err.response?.data === 'string') {
-        errorMsg = err.response.data
-      } else if (err.response?.data) {
-        errorMsg = JSON.stringify(err.response.data)
-      } else if (err.message && err.message !== 'No message available') {
-        errorMsg = err.message
-      }
+      // Xử lý thông báo lỗi thân thiện
+      let errorMsg = 'Có lỗi xảy ra, vui lòng kiểm tra lại.'
+      if (err.response?.data?.message) errorMsg = err.response.data.message
+      else if (err.message) errorMsg = err.message
       
       setError(errorMsg)
     } finally {
