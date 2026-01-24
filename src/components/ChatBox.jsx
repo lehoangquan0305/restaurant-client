@@ -17,37 +17,14 @@ export default function ChatBox() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [menu, setMenu] = useState([])
-  const [cart, setCart] = useState([])
   const messagesEndRef = useRef(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  const addToCart = (item) => {
-    const existingItem = cart.find(c => c.id === item.id)
-    let newCart
-
-    if (existingItem) {
-      newCart = cart.map(c =>
-        c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
-      )
-    } else {
-      newCart = [...cart, { ...item, quantity: 1 }]
-    }
-
-    setCart(newCart)
-    localStorage.setItem('cart', JSON.stringify(newCart))
-
-    toast.success(`${item.name} đã được thêm vào giỏ hàng!`, {
-      duration: 1500
-    })
-  }
-
+  // 1. Đồng bộ cuộn tin nhắn
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // 2. Load Menu để Bot biết thông tin món ăn
   useEffect(() => {
     const loadMenu = async () => {
       try {
@@ -58,61 +35,81 @@ export default function ChatBox() {
       }
     }
     loadMenu()
-
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
-    setCart(savedCart)
   }, [])
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return
+  // 3. Hàm Add To Cart "bắt chước" Menu.jsx nhưng thêm lệnh phát sự kiện
+  const addToCartFromBot = (item) => {
+    // Lấy giỏ hàng mới nhất từ localStorage (giống cách Menu làm)
+    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]')
+    
+    const existingItem = currentCart.find(c => c.id === item.id)
+    let newCart
 
-    // Thêm tin nhắn của người dùng
+    if (existingItem) {
+      newCart = currentCart.map(c =>
+        c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
+      )
+    } else {
+      newCart = [...currentCart, { ...item, quantity: 1 }]
+    }
+
+    // Lưu vào localStorage
+    localStorage.setItem('cart', JSON.stringify(newCart))
+
+    // 🔥 CÁI NÀY QUAN TRỌNG NHẤT:
+    // Vì Bot và Menu là 2 Component khác nhau, Bot phải "hét" lên 
+    // để Menu nghe thấy và tự cập nhật lại giao diện của nó.
+    window.dispatchEvent(new Event('storage')) 
+    
+    toast.success(`${item.name} đã được thêm vào giỏ hàng!`, {
+      duration: 1500,
+      position: 'bottom-right'
+    })
+  }
+
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
+
     const userMessage = {
-      id: messages.length + 1,
+      id: Date.now(),
       text: input,
       sender: 'user',
       timestamp: new Date()
-    }
+    };
 
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setIsLoading(true)
+    setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
+    setInput('');
+    setIsLoading(true);
 
-    // Gọi Gemini AI API thực
     try {
-      const response = await sendMessageToGemini(input)
+      const response = await sendMessageToGemini(currentInput);
+      
       const botMessage = {
-        id: messages.length + 2,
+        id: Date.now() + 1,
         text: response.text,
         sender: 'bot',
         timestamp: new Date()
-      }
-      setMessages(prev => [...prev, botMessage])
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
 
-      // Handle action
+      // Xử lý khi AI yêu cầu thêm món
       if (response.action === 'add_to_cart' && response.item) {
-        const item = menu.find(m => m.name.toLowerCase().includes(response.item.toLowerCase()))
-        if (item) {
-          addToCart(item)
-        } else {
-          toast.error(`Không tìm thấy món "${response.item}" trong thực đơn.`, {
-            duration: 2000
-          })
+        const foundItem = menu.find(m => 
+          m.name.toLowerCase().includes(response.item.toLowerCase())
+        );
+        
+        if (foundItem) {
+          addToCartFromBot(foundItem);
         }
       }
     } catch (error) {
-      console.error('Error getting AI response:', error)
-      const errorResponse = {
-        id: messages.length + 2,
-        text: 'Xin lỗi, tôi gặp lỗi. Vui lòng thử lại sau.',
-        sender: 'bot',
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, errorResponse])
+      console.error('Error:', error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -124,65 +121,42 @@ export default function ChatBox() {
   return (
     <>
       <Toaster />
-      {/* Chat Box Button */}
-      <button 
-        className="chat-toggle-btn"
-        onClick={() => setIsOpen(!isOpen)}
-        title="Trợ lý AI"
-      >
-        💬
+      <button className="chat-toggle-btn" onClick={() => setIsOpen(!isOpen)}>
+        {isOpen ? '✕' : '💬'}
       </button>
 
-      {/* Chat Box Window */}
       {isOpen && (
         <div className="chatbox-container">
           <div className="chatbox-header">
             <h3>Trợ Lý AI - Nhà Hàng QT</h3>
-            <button 
-              className="close-btn"
-              onClick={() => setIsOpen(false)}
-            >
-              ✕
-            </button>
+            <button className="close-btn" onClick={() => setIsOpen(false)}>✕</button>
           </div>
-
           <div className="chatbox-messages">
             {messages.map((msg) => (
               <div key={msg.id} className={`message ${msg.sender}`}>
-                <div className="message-content">
-                  {msg.text}
-                </div>
+                <div className="message-content">{msg.text}</div>
               </div>
             ))}
             {isLoading && (
               <div className="message bot">
                 <div className="message-content">
-                  <span className="typing-indicator">
-                    <span></span><span></span><span></span>
-                  </span>
+                  <span className="typing-indicator"><span></span><span></span><span></span></span>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
-
           <div className="chatbox-input-area">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Nhập câu hỏi của bạn..."
+              placeholder="Nhập câu hỏi..."
               className="chatbox-input"
               disabled={isLoading}
             />
-            <button
-              onClick={handleSendMessage}
-              disabled={isLoading || !input.trim()}
-              className="send-btn"
-            >
-              📤
-            </button>
+            <button onClick={handleSendMessage} disabled={isLoading || !input.trim()} className="send-btn">📤</button>
           </div>
         </div>
       )}

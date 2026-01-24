@@ -1,5 +1,6 @@
 // Service để gọi Backend Chatbot API (Spring Boot + Gemini)
-const API_URL = '/api/chat'
+// Thay đổi dòng này
+const API_URL = '/api/chat';
 
 // Phản hồi fallback khi API fail
 const fallbackResponses = {
@@ -34,7 +35,6 @@ export const sendMessageToGemini = async (message) => {
   try {
     console.log('📤 Sending message to backend:', message)
     
-    // Lấy userId từ localStorage (được set khi login)
     const userId = localStorage.getItem('username') || 'guest-' + Date.now()
     
     const response = await fetch(API_URL, {
@@ -49,30 +49,40 @@ export const sendMessageToGemini = async (message) => {
     })
 
     console.log('📥 Backend response status:', response.status)
-    const data = await response.json()
-    console.log('📥 Backend response:', data)
 
     if (!response.ok) {
-      console.error('❌ Backend error:', data)
-      return getFallbackResponse(message)
+      console.error('❌ Backend error status:', response.status)
+      return { ...getFallbackResponse(message), fallback: true }
     }
 
-    if (data.reply) {
-      console.log('✅ Got AI response from Gemini:', data.reply)
-      return { text: data.reply, action: data.action || null, item: data.item || null }
+    const data = await response.json()
+    console.log('📥 Backend response content:', data)
+
+    // SỬA TẠI ĐÂY: Kiểm tra data.text (vì Groq/API của cậu trả về text)
+    if (data && (data.text || data.reply)) {
+      const finalChatText = data.text || data.reply; // Lấy cái nào có dữ liệu
+      console.log('✅ Got AI response:', finalChatText)
+      
+      return { 
+        text: finalChatText, 
+        action: data.action || null, 
+        item: data.item || null,
+        fallback: false
+      }
     }
 
+    // Nếu backend trả về lỗi từ AI
     if (data.error) {
       console.error('❌ Backend returned error:', data.error)
-      return getFallbackResponse(message)
+      return { ...getFallbackResponse(message), fallback: true }
     }
 
-    console.error('❌ Invalid response format:', data)
-    return getFallbackResponse(message)
+    console.error('❌ Invalid response format (Missing text field):', data)
+    return { ...getFallbackResponse(message), fallback: true }
+
   } catch (error) {
     console.error('❌ Error calling backend API:', error)
-    // Sử dụng fallback response khi có lỗi
-    return getFallbackResponse(message)
+    return { ...getFallbackResponse(message), fallback: true }
   }
 }
 
