@@ -16,17 +16,33 @@ export default function Menu() {
   const [selectedDish, setSelectedDish] = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
+useEffect(() => {
     loadData()
 
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
-    setCart(savedCart)
+    // Hàm cập nhật giỏ hàng từ LocalStorage
+    const syncCart = () => {
+      const savedCart = JSON.parse(localStorage.getItem('cart') || '[]')
+      setCart(savedCart)
+    }
+
+    // Chạy lần đầu khi load trang
+    syncCart()
 
     const savedTable = localStorage.getItem('selectedTable')
     const savedTime = localStorage.getItem('reservationTime')
 
     if (savedTable) setSelectedTable(parseInt(savedTable))
     if (savedTime) setReservationTime(savedTime)
+
+    // 🔥 THÊM DÒNG NÀY: Lắng nghe tiếng "hét" từ con Bot
+    window.addEventListener('storage', syncCart)
+    window.addEventListener('cart-updated', syncCart) // Sự kiện custom cho cùng 1 tab
+
+    // Xóa lắng nghe khi component bị hủy (tránh rò rỉ bộ nhớ)
+    return () => {
+      window.removeEventListener('storage', syncCart)
+      window.removeEventListener('cart-updated', syncCart)
+    }
   }, [])
 
   const loadData = async () => {

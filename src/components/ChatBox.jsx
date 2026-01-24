@@ -60,6 +60,7 @@ export default function ChatBox() {
     // Vì Bot và Menu là 2 Component khác nhau, Bot phải "hét" lên 
     // để Menu nghe thấy và tự cập nhật lại giao diện của nó.
     window.dispatchEvent(new Event('storage')) 
+window.dispatchEvent(new Event('cart-updated'))
     
     toast.success(`${item.name} đã được thêm vào giỏ hàng!`, {
       duration: 1500,
