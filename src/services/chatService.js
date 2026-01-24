@@ -1,16 +1,11 @@
-// Service để gọi Backend Chatbot API (Spring Boot + Gemini)
-// Thay đổi dòng này
+// Service để gọi Backend Chatbot API (Vercel Serverless Function)
 const API_URL = '/api/chat';
 
 // Phản hồi fallback khi API fail
 const fallbackResponses = {
-  thực_đơn: 'Nhà hàng QT phục vụ các món ăn Á Châu đa dạng: Cơm, Mì, Canh, Gỏi, Salad và các món tráng miệng đặc sắc. Bạn có thể xem chi tiết trong mục "📋 Thực Đơn".',
-  đặt_bàn: 'Bạn có thể đặt bàn qua mục "💳 Đặt Bàn". Chỉ cần chọn thời gian, số người, và những món ăn bạn muốn. Chúng tôi sẽ xác nhận lịch đặt của bạn.',
-  thanh_toán: 'Chúng tôi hỗ trợ: Chuyển khoản ngân hàng, Ví điện tử, và Tiền mặt. Bạn có thể chọn phương thức phù hợp nhất khi thanh toán.',
-  liên_hệ: 'Bạn có thể liên hệ với chúng tôi qua hotline hoặc website. Đội ngũ nhà hàng sẽ sẵn sàng hỗ trợ bạn.',
-  giá_cả: 'Giá cả các món ăn rất hợp lý và cạnh tranh. Bạn có thể xem chi tiết giá từng món trong thực đơn.',
-  khuyến_mãi: 'Nhà hàng QT thường xuyên có các khuyến mãi hấp dẫn. Vui lòng kiểm tra thực đơn hoặc liên hệ để biết thêm chi tiết.',
-  default: 'Cảm ơn câu hỏi! 😊 Tôi có thể giúp bạn về: Thực đơn, Đặt bàn, Thanh toán, Khuyến mãi, Hoặc bất kỳ câu hỏi nào về nhà hàng QT.'
+  thực_đơn: 'Nhà hàng QT phục vụ các món ăn Pháp - Ý thượng hạng: Steak, Sườn cừu, Gan ngỗng... Bạn có thể xem chi tiết trong mục "📋 Thực Đơn".',
+  đặt_bàn: 'Dạ, Anh/Chị có thể đặt bàn qua mục "💳 Đặt Bàn" hoặc nhắn em thông tin thời gian nhé! 🥰',
+  default: 'Dạ, em nghe đây ạ! Em có thể giúp Anh/Chị xem thực đơn, chọn món hoặc đặt bàn nha. ✨'
 }
 
 const getFallbackResponse = (message) => {
@@ -19,21 +14,14 @@ const getFallbackResponse = (message) => {
     return { text: fallbackResponses.thực_đơn, action: null, item: null }
   } else if (lowerMsg.includes('đặt bàn') || lowerMsg.includes('đặt') || lowerMsg.includes('bàn')) {
     return { text: fallbackResponses.đặt_bàn, action: null, item: null }
-  } else if (lowerMsg.includes('thanh toán') || lowerMsg.includes('trả tiền') || lowerMsg.includes('chi phí')) {
-    return { text: fallbackResponses.thanh_toán, action: null, item: null }
-  } else if (lowerMsg.includes('liên hệ') || lowerMsg.includes('hotline') || lowerMsg.includes('điện thoại')) {
-    return { text: fallbackResponses.liên_hệ, action: null, item: null }
-  } else if (lowerMsg.includes('giá') || lowerMsg.includes('tiền')) {
-    return { text: fallbackResponses.giá_cả, action: null, item: null }
-  } else if (lowerMsg.includes('khuyến mãi') || lowerMsg.includes('giảm') || lowerMsg.includes('sale')) {
-    return { text: fallbackResponses.khuyến_mãi, action: null, item: null }
   }
   return { text: fallbackResponses.default, action: null, item: null }
 }
 
-export const sendMessageToGemini = async (message) => {
+// THÊM history vào tham số hàm ở đây
+export const sendMessageToGemini = async (message, history = []) => {
   try {
-    console.log('📤 Sending message to backend:', message)
+    console.log('📤 Sending message & history to backend:', { message, history })
     
     const userId = localStorage.getItem('username') || 'guest-' + Date.now()
     
@@ -44,11 +32,10 @@ export const sendMessageToGemini = async (message) => {
       },
       body: JSON.stringify({ 
         message: message,
+        history: history, // GỬI THÊM LỊCH SỬ LÊN ĐÂY
         userId: userId
       })
     })
-
-    console.log('📥 Backend response status:', response.status)
 
     if (!response.ok) {
       console.error('❌ Backend error status:', response.status)
@@ -58,11 +45,8 @@ export const sendMessageToGemini = async (message) => {
     const data = await response.json()
     console.log('📥 Backend response content:', data)
 
-    // SỬA TẠI ĐÂY: Kiểm tra data.text (vì Groq/API của cậu trả về text)
     if (data && (data.text || data.reply)) {
-      const finalChatText = data.text || data.reply; // Lấy cái nào có dữ liệu
-      console.log('✅ Got AI response:', finalChatText)
-      
+      const finalChatText = data.text || data.reply;
       return { 
         text: finalChatText, 
         action: data.action || null, 
@@ -71,13 +55,6 @@ export const sendMessageToGemini = async (message) => {
       }
     }
 
-    // Nếu backend trả về lỗi từ AI
-    if (data.error) {
-      console.error('❌ Backend returned error:', data.error)
-      return { ...getFallbackResponse(message), fallback: true }
-    }
-
-    console.error('❌ Invalid response format (Missing text field):', data)
     return { ...getFallbackResponse(message), fallback: true }
 
   } catch (error) {
@@ -85,4 +62,3 @@ export const sendMessageToGemini = async (message) => {
     return { ...getFallbackResponse(message), fallback: true }
   }
 }
-

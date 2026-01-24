@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   try {
-    const { message } = req.body;
+    const { message,history } = req.body;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
@@ -34,6 +34,7 @@ export default async function handler(req, res) {
           QUY ĐỊNH JSON:
           - Trả về JSON: {"text": "nội dung trả lời", "action": "add_to_cart" hoặc null, "item": "tên món" hoặc null}.`
         },
+        ...(history||[]),
         {
           role: "user",
           content: message
