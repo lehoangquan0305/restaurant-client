@@ -71,32 +71,37 @@ window.dispatchEvent(new Event('cart-updated'))
   const handleSendMessage = async () => {
     if (!input.trim()) return;
 
-    // 1. Tạo tin nhắn mới của người dùng
+    // 1. LẤY GIỎ HÀNG THỰC TẾ (Kể cả khách tự bấm thêm tay)
+    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const cartDescription = currentCart.length > 0 
+      ? currentCart.map(item => `- ${item.name} (SL: ${item.quantity})`).join(", ")
+      : "đang trống";
+
+    // 2. Tạo tin nhắn hiển thị cho người dùng (vẫn là câu hỏi gốc)
     const userMessage = {
       id: Date.now(),
       text: input,
       sender: 'user',
       timestamp: new Date()
     };
-
-    // 2. Cập nhật giao diện ngay lập tức
     setMessages(prev => [...prev, userMessage]);
-    
-    // 3. Chuẩn bị "Trí nhớ" (Lịch sử chat) để gửi lên AI
-    // Chúng ta lấy khoảng 4 tin nhắn gần nhất để AI biết "món đó" là món nào
+
+    // 3. Chuẩn bị lịch sử chat
     const history = messages.slice(-4).map(msg => ({
       role: msg.sender === 'bot' ? 'assistant' : 'user',
       content: msg.text
     }));
 
-    const currentInput = input;
+    // 4. "THÌ THẦM" VỚI AI: Kẹp giỏ hàng vào câu hỏi gửi đi
+    const contextualInput = `[Dữ liệu thực tế - Giỏ hàng hiện tại của khách: ${cartDescription}]. Câu hỏi của khách: ${input}`;
+
+    const currentInput = input; // Giữ lại để dùng nếu cần
     setInput('');
     setIsLoading(true);
 
     try {
-      // 4. Gửi cả tin nhắn hiện tại VÀ lịch sử chat lên Service
-      // Chúng ta sẽ gộp lịch sử vào để AI đọc được ngữ cảnh
-      const response = await sendMessageToGemini(currentInput, history);
+      // GỬI contextualInput thay vì input để AI biết giỏ hàng có gì
+      const response = await sendMessageToGemini(contextualInput, history);
       
       const botMessage = {
         id: Date.now() + 1,
@@ -107,9 +112,7 @@ window.dispatchEvent(new Event('cart-updated'))
       
       setMessages(prev => [...prev, botMessage]);
 
-      // 5. Xử lý khi AI yêu cầu thêm món
       if (response.action === 'add_to_cart' && response.item) {
-        // Tìm món ăn trong menu dựa trên tên AI trả về
         const foundItem = menu.find(m => 
           m.name.toLowerCase().includes(response.item.toLowerCase()) ||
           response.item.toLowerCase().includes(m.name.toLowerCase())
