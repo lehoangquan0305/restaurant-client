@@ -17,7 +17,7 @@ function ProtectedRoute({ children }) {
 
 function LayoutWrapper({ children }) {
   const location = useLocation();
-  const hideChatPaths = ['/login', '/register'];
+  const hideChatPaths = ['/login', '/register','/forgot-password'];
   const shouldShowChat = !hideChatPaths.includes(location.pathname);
 
   return (
