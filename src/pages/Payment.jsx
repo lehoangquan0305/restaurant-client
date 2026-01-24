@@ -9,7 +9,7 @@ export default function Payment() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // THÔNG TIN NGÂN HÀNG CỦA CẬU
+  // THÔNG TIN NGÂN HÀNG TPBANK CỦA CẬU
   const MY_BANK = {
     BANK_ID: "tpbank", 
     ACCOUNT_NO: "0934016724", 
@@ -18,8 +18,11 @@ export default function Payment() {
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('pendingPayment') || '{}')
+    if (!data.invoiceId) {
+        navigate('/menu')
+    }
     setPending(data)
-  }, [])
+  }, [navigate])
 
   const handlePaymentConfirm = async () => {
     if (!pending) return
@@ -45,14 +48,7 @@ export default function Payment() {
   }
 
   if (!pending || !pending.invoiceId) {
-    return (
-      <div className="payment-container">
-        <div className="payment-card">
-          <p>Không có thanh toán nào trong chờ xử lý</p>
-          <button onClick={() => navigate('/menu')}>← Quay lại Thực đơn</button>
-        </div>
-      </div>
-    )
+    return <div className="payment-container"><div className="payment-card">Đang tải thông tin thanh toán...</div></div>
   }
 
   return (
@@ -62,63 +58,90 @@ export default function Payment() {
           <>
             <div className="payment-header">
               <h1>💳 Thanh Toán</h1>
-              <p>Phương thức: {pending.method === 'qrcode' ? 'Quét Mã QR' : pending.method === 'momo' ? 'Ví Momo' : 'Chuyển Khoản Ngân Hàng'}</p>
+              <p>Phương thức: {
+                pending.method === 'qrcode' ? '📱 Quét Mã QR' : 
+                pending.method === 'momo' ? '🔴 Ví Momo' : 
+                pending.method === 'bank' ? '🏦 Chuyển Khoản' : '💵 Tại Quầy'
+              }</p>
             </div>
 
+            {/* 1. HIỂN THỊ CHO QR CODE HOẶC CHUYỂN KHOẢN */}
             {(pending.method === 'qrcode' || pending.method === 'bank') && (
               <div className="qr-section">
-                <h2>📱 Quét Mã QR Để Thanh Toán</h2>
+                <h2>📱 Quét QR Ngân Hàng</h2>
                 <div className="qr-code" style={{ textAlign: 'center', margin: '20px 0' }}>
-                  {/* Mã QR VietQR xịn xò tự động điền tiền và nội dung */}
                   <img 
                     src={`https://img.vietqr.io/image/${MY_BANK.BANK_ID}-${MY_BANK.ACCOUNT_NO}-compact.png?amount=${pending.amount}&addInfo=Thanh toan hoa don ${pending.invoiceId}&accountName=${MY_BANK.ACCOUNT_NAME}`} 
-                    alt="Mã QR Thanh Toán" 
-                    style={{ width: '100%', maxWidth: '250px', borderRadius: '15px', border: '2px solid #f1f1f1', padding: '10px' }}
+                    alt="VietQR" 
+                    style={{ width: '100%', maxWidth: '250px', borderRadius: '15px', border: '2px solid #007bff', padding: '10px' }}
                   />
                 </div>
-                <p className="qr-info">
-                  Mã QR tương ứng với số tiền: <strong>{pending.amount?.toLocaleString?.()} ₫</strong>
-                </p>
-                <p className="qr-text" style={{ fontSize: '13px', color: '#666' }}>
-                  Sử dụng ứng dụng Ngân hàng để quét mã QR và thanh toán tự động.
-                </p>
+                <p className="qr-info">Số tiền: <strong>{pending.amount?.toLocaleString()} ₫</strong></p>
+                <p className="qr-text" style={{ fontSize: '13px', color: '#666' }}>Quét mã bằng App ngân hàng để điền nhanh thông tin.</p>
               </div>
             )}
 
-            {/* ... Phần Momo và các phần dưới giữ nguyên như cũ của cậu nhé ... */}
+            {/* 2. HIỂN THỊ CHO VÍ MOMO */}
             {pending.method === 'momo' && (
-              <div className="momo-section">
-                <h2>🔴 Thanh Toán Qua Momo</h2>
-                <div className="momo-info">
-                  <p><strong>Số tiền:</strong> {pending.amount?.toLocaleString?.()} ₫</p>
-                  <p><strong>Nội dung chuyển:</strong> Thanh toán hóa đơn {pending.invoiceId}</p>
-                  <p><strong>Số điện thoại Momo:</strong> 0934016724</p>
+              <div className="momo-section" style={{ textAlign: 'center' }}>
+                <h2 style={{ color: '#a50064' }}>🔴 Quét Mã Momo / Ngân Hàng</h2>
+                <div className="qr-code" style={{ margin: '20px 0' }}>
+                  <img 
+                    src={`https://img.vietqr.io/image/${MY_BANK.BANK_ID}-${MY_BANK.ACCOUNT_NO}-compact.png?amount=${pending.amount}&addInfo=MOMO Thanh toan ${pending.invoiceId}&accountName=${MY_BANK.ACCOUNT_NAME}`} 
+                    alt="Momo QR" 
+                    style={{ width: '100%', maxWidth: '220px', borderRadius: '15px', border: '4px solid #a50064', padding: '5px' }}
+                  />
                 </div>
+                <p>Số Momo: <strong>0934016724</strong></p>
+                <p>Chủ thẻ: <strong>LE HOANG QUAN</strong></p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Dùng App Momo hoặc Ngân hàng quét đều được nhé!</p>
               </div>
             )}
 
-            <div className="payment-amount">
+            {/* 3. HIỂN THỊ CHO THANH TOÁN TẠI QUÁN */}
+            {pending.method === 'cash' && (
+              <div className="cash-section" style={{ padding: '30px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '60px' }}>🏃‍♂️</div>
+                <h2 style={{ color: '#2ecc71' }}>Thanh Toán Tại Quầy</h2>
+                <p>Vui lòng đọc mã hóa đơn bên dưới tại quầy thu ngân:</p>
+                <div style={{ background: '#f8f9fa', padding: '10px', borderRadius: '8px', margin: '15px 0', fontSize: '20px', fontWeight: 'bold', color: '#333' }}>
+                  #{pending.invoiceId}
+                </div>
+                <p style={{ color: '#7f8c8d' }}>Cảm ơn bạn đã tin tưởng nhà hàng QT!</p>
+              </div>
+            )}
+
+            <div className="payment-amount" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
               <span>Tổng thanh toán:</span>
-              <strong>{pending.amount?.toLocaleString?.()} ₫</strong>
+              <strong style={{ fontSize: '22px', color: '#e74c3c' }}>{pending.amount?.toLocaleString()} ₫</strong>
             </div>
 
-            <div className="payment-actions">
-              <button className="btn-cancel" onClick={() => navigate('/checkout')} disabled={loading}>
+            <div className="payment-actions" style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button className="btn-cancel" onClick={() => navigate('/checkout')} disabled={loading} style={{ flex: 1 }}>
                 ← Quay Lại
               </button>
-              <button className="btn-confirm" onClick={handlePaymentConfirm} disabled={loading}>
-                {loading ? '⏳ Đang xử lý...' : '✅ Tôi Đã Thanh Toán'}
+              <button className="btn-confirm" onClick={handlePaymentConfirm} disabled={loading} style={{ flex: 2 }}>
+                {loading ? '⏳ Đang xử lý...' : (pending.method === 'cash' ? '✅ Xác nhận tại quầy' : '✅ Tôi Đã Chuyển Tiền')}
               </button>
             </div>
           </>
         )}
 
-        {/* ... Success/Failed view giữ nguyên ... */}
         {status === 'success' && (
-          <div className="payment-success">
-            <div className="success-icon" style={{fontSize: '50px'}}>✅</div>
-            <h1>Thanh Toán Thành Công!</h1>
-            <p>Đang chuyển hướng đến đơn hàng của bạn...</p>
+          <div className="payment-success" style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div className="success-icon" style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
+            <h1>Tuyệt vời!</h1>
+            <p>Hệ thống đã ghi nhận thanh toán của bạn.</p>
+            <p style={{ color: '#7f8c8d', fontSize: '14px' }}>Đang chuyển bạn về danh sách đơn hàng...</p>
+          </div>
+        )}
+
+        {status === 'failed' && (
+          <div className="payment-failed" style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div className="failed-icon" style={{ fontSize: '60px', marginBottom: '20px' }}>❌</div>
+            <h1>Thanh Toán Thất Bại</h1>
+            <p>Có lỗi xảy ra, vui lòng liên hệ nhân viên để được hỗ trợ.</p>
+            <button onClick={() => setStatus('waiting')} style={{ marginTop: '20px' }}>← Thử lại</button>
           </div>
         )}
       </div>
