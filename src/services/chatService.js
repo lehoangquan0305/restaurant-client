@@ -11,14 +11,13 @@ const fallbackResponses = {
 const getFallbackResponse = (message) => {
   const lowerMsg = message.toLowerCase()
   if (lowerMsg.includes('thực đơn') || lowerMsg.includes('món ăn') || lowerMsg.includes('ăn gì')) {
-    return { text: fallbackResponses.thực_đơn, action: null, item: null }
+    return { text: fallbackResponses.thực_đơn, action: null, items: [] }
   } else if (lowerMsg.includes('đặt bàn') || lowerMsg.includes('đặt') || lowerMsg.includes('bàn')) {
-    return { text: fallbackResponses.đặt_bàn, action: null, item: null }
+    return { text: fallbackResponses.đặt_bàn, action: null, items: [] }
   }
-  return { text: fallbackResponses.default, action: null, item: null }
+  return { text: fallbackResponses.default, action: null, items: [] }
 }
 
-// THÊM history vào tham số hàm ở đây
 export const sendMessageToGemini = async (message, history = []) => {
   try {
     console.log('📤 Sending message & history to backend:', { message, history })
@@ -32,7 +31,7 @@ export const sendMessageToGemini = async (message, history = []) => {
       },
       body: JSON.stringify({ 
         message: message,
-        history: history, // GỬI THÊM LỊCH SỬ LÊN ĐÂY
+        history: history,
         userId: userId
       })
     })
@@ -47,10 +46,23 @@ export const sendMessageToGemini = async (message, history = []) => {
 
     if (data && (data.text || data.reply)) {
       const finalChatText = data.text || data.reply;
+      
+      // LOGIC MỚI: Chuẩn hóa dữ liệu trả về cho Frontend
+      // Nếu Backend trả về 'item' (chuỗi), ta biến nó thành mảng 'items' để đồng bộ
+      let finalItems = [];
+      if (data.items && Array.isArray(data.items)) {
+        finalItems = data.items;
+      } else if (data.item) {
+        // Nếu là chuỗi, kiểm tra xem có dấu phẩy không để tách ra
+        finalItems = data.item.includes(',') 
+          ? data.item.split(',').map(i => i.trim()) 
+          : [data.item.trim()];
+      }
+
       return { 
         text: finalChatText, 
         action: data.action || null, 
-        item: data.item || null,
+        items: finalItems, // Luôn trả về mảng để Frontend dễ xử lý vòng lặp
         fallback: false
       }
     }

@@ -19,12 +19,10 @@ export default function ChatBox() {
   const [menu, setMenu] = useState([])
   const messagesEndRef = useRef(null)
 
-  // 1. Đồng bộ cuộn tin nhắn
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 2. Load Menu để Bot biết thông tin món ăn
   useEffect(() => {
     const loadMenu = async () => {
       try {
@@ -37,32 +35,23 @@ export default function ChatBox() {
     loadMenu()
   }, [])
 
-  // 3. Hàm Add To Cart "bắt chước" Menu.jsx nhưng thêm lệnh phát sự kiện
+  // Tối ưu hàm thêm vào giỏ hàng để tránh ghi đè khi gọi liên tục
   const addToCartFromBot = (item) => {
-    // Lấy giỏ hàng mới nhất từ localStorage (giống cách Menu làm)
     const currentCart = JSON.parse(localStorage.getItem('cart') || '[]')
-    
-    const existingItem = currentCart.find(c => c.id === item.id)
-    let newCart
+    const existingItemIndex = currentCart.findIndex(c => c.id === item.id)
+    let newCart = [...currentCart]
 
-    if (existingItem) {
-      newCart = currentCart.map(c =>
-        c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
-      )
+    if (existingItemIndex > -1) {
+      newCart[existingItemIndex].quantity += 1
     } else {
-      newCart = [...currentCart, { ...item, quantity: 1 }]
+      newCart.push({ ...item, quantity: 1 })
     }
 
-    // Lưu vào localStorage
     localStorage.setItem('cart', JSON.stringify(newCart))
-
-    // 🔥 CÁI NÀY QUAN TRỌNG NHẤT:
-    // Vì Bot và Menu là 2 Component khác nhau, Bot phải "hét" lên 
-    // để Menu nghe thấy và tự cập nhật lại giao diện của nó.
     window.dispatchEvent(new Event('storage')) 
-window.dispatchEvent(new Event('cart-updated'))
+    window.dispatchEvent(new Event('cart-updated'))
     
-    toast.success(`${item.name} đã được thêm vào giỏ hàng!`, {
+    toast.success(`${item.name} đã thêm vào giỏ!`, {
       duration: 1500,
       position: 'bottom-right'
     })
@@ -71,13 +60,11 @@ window.dispatchEvent(new Event('cart-updated'))
   const handleSendMessage = async () => {
     if (!input.trim()) return;
 
-    // 1. LẤY GIỎ HÀNG THỰC TẾ (Kể cả khách tự bấm thêm tay)
     const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
     const cartDescription = currentCart.length > 0 
-      ? currentCart.map(item => `- ${item.name} (SL: ${item.quantity})`).join(", ")
+      ? currentCart.map(item => `${item.name} (SL: ${item.quantity})`).join(", ")
       : "đang trống";
 
-    // 2. Tạo tin nhắn hiển thị cho người dùng (vẫn là câu hỏi gốc)
     const userMessage = {
       id: Date.now(),
       text: input,
@@ -86,21 +73,18 @@ window.dispatchEvent(new Event('cart-updated'))
     };
     setMessages(prev => [...prev, userMessage]);
 
-    // 3. Chuẩn bị lịch sử chat
     const history = messages.slice(-4).map(msg => ({
       role: msg.sender === 'bot' ? 'assistant' : 'user',
       content: msg.text
     }));
 
-    // 4. "THÌ THẦM" VỚI AI: Kẹp giỏ hàng vào câu hỏi gửi đi
-    const contextualInput = `[Dữ liệu thực tế - Giỏ hàng hiện tại của khách: ${cartDescription}]. Câu hỏi của khách: ${input}`;
+    // Nhắc khéo AI trả về nhiều món nếu cần
+    const contextualInput = `[Giỏ hàng hiện tại: ${cartDescription}]. Nếu khách yêu cầu nhiều món, hãy liệt kê chúng trong thuộc tính 'items' dạng mảng. Câu hỏi: ${input}`;
 
-    const currentInput = input; // Giữ lại để dùng nếu cần
     setInput('');
     setIsLoading(true);
 
     try {
-      // GỬI contextualInput thay vì input để AI biết giỏ hàng có gì
       const response = await sendMessageToGemini(contextualInput, history);
       
       const botMessage = {
@@ -109,19 +93,31 @@ window.dispatchEvent(new Event('cart-updated'))
         sender: 'bot',
         timestamp: new Date()
       };
-      
       setMessages(prev => [...prev, botMessage]);
 
-      if (response.action === 'add_to_cart' && response.item) {
-        const foundItem = menu.find(m => 
-          m.name.toLowerCase().includes(response.item.toLowerCase()) ||
-          response.item.toLowerCase().includes(m.name.toLowerCase())
-        );
-        
-        if (foundItem) {
-          addToCartFromBot(foundItem);
+      // --- LOGIC SỬA ĐỔI Ở ĐÂY ---
+      if (response.action === 'add_to_cart') {
+        // Hỗ trợ cả response.item (chuỗi) và response.items (mảng)
+        let itemsToAdd = [];
+        if (response.items && Array.isArray(response.items)) {
+          itemsToAdd = response.items;
+        } else if (response.item) {
+          // Nếu AI trả về chuỗi có dấu phẩy, tách nó ra thành mảng
+          itemsToAdd = response.item.split(',').map(i => i.trim());
         }
+
+        itemsToAdd.forEach(itemName => {
+          const foundItem = menu.find(m => 
+            m.name.toLowerCase().includes(itemName.toLowerCase()) ||
+            itemName.toLowerCase().includes(m.name.toLowerCase())
+          );
+          if (foundItem) {
+            addToCartFromBot(foundItem);
+          }
+        });
       }
+      // --------------------------
+
     } catch (error) {
       console.error('Error:', error);
       toast.error("Em đang bận xíu, Anh nhắn lại nhé! 😭");
