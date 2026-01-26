@@ -41,7 +41,6 @@ export default function Login() {
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('username', cleanUsername)
       
-      // Thành công thì reset đếm về 0
       setWrongCount(0)
       toast.success(`Đăng nhập thành công! Chào ${cleanUsername}`)
       
@@ -50,15 +49,30 @@ export default function Login() {
       }, 1000)
       
     } catch (err) {
-      // 2. TĂNG BIẾN ĐẾM KHI SAI
       const newCount = wrongCount + 1
       setWrongCount(newCount)
 
-      const serverMessage = err.response?.data?.message || 'Tên đăng nhập hoặc mật khẩu không chính xác'
-      setError(serverMessage)
-      toast.error(`${serverMessage} (Lần ${newCount})`)
+      const serverMessage = (err.response?.data?.message || err.response?.data || "").toLowerCase()
+      let finalError = 'Tên đăng nhập hoặc mật khẩu không chính xác'
 
-      // 3. NẾU SAI TỪ 3 LẦN TRỞ LÊN THÌ HIỆN QUÊN MẬT KHẨU
+      // ƯU TIÊN KIỂM TRA NỘI DUNG CHỮ TRƯỚC
+      if (serverMessage.includes('not found') || 
+          serverMessage.includes('không tồn tại') || 
+          serverMessage.includes('does not exist') ||
+          serverMessage.includes('chưa đăng ký')) {
+        finalError = 'Tài khoản này chưa được đăng ký!'
+      } 
+      // Nếu không phải lỗi "không tồn tại" mà là 401 thì mới báo sai mật khẩu
+      else if (err.response?.status === 401) {
+        finalError = 'Mật khẩu không chính xác. Vui lòng kiểm tra lại!'
+      }
+      else if (err.response?.data?.message) {
+        finalError = err.response.data.message
+      }
+
+      setError(finalError)
+      toast.error(`${finalError} (Lần ${newCount})`)
+
       if (newCount >= 3) {
         setShowForgot(true)
       }
