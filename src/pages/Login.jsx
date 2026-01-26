@@ -97,6 +97,7 @@ export default function Login() {
               />
               <button
                 type="button"
+                id="togglePasswordBtn"
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: 'absolute',
@@ -110,6 +111,7 @@ export default function Login() {
                   alignItems: 'center',
                   color: '#666'
                 }}
+                aria-label="Toggle password visibility"
               >
                 {showPassword ? '👁️' : '👁️‍🗨️'}
               </button>
