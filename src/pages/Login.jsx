@@ -93,7 +93,7 @@ export default function Login() {
                 placeholder="Nhập mật khẩu"
                 disabled={loading}
                 required
-                style={{ width: '100%', paddingRight: '40px' }} // Chừa chỗ bên phải cho con mắt
+                style={{ width: '100%', paddingRight: '40px' }}
               />
               <button
                 type="button"
